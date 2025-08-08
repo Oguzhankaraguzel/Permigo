@@ -1,0 +1,29 @@
+﻿<ul id="slide-out" class="sidenav">
+    <li>
+        <div class="user-view">
+            <div class="background teal darken-1"></div>
+            <a href="#user"><i class="material-icons white-text large">account_circle</i></a>
+            <a href="#name"><span class="white-text name">@(User?.Identity?.Name ?? "Guest User")</span></a>
+            <a href="#email"><span class="white-text email">@User?.Claims.FirstOrDefault(x => x.Type == "email")?.Value</span></a>
+        </div>
+    </li>
+
+    @if (User!.Identity?.IsAuthenticated == true)
+    {
+        if (User.IsInRole("Employee"))
+        {
+            <li><a class="waves-effect" asp-controller="LeaveRequest" asp-action="Create"><i class="material-icons">add_circle_outline</i>New Leave Request</a></li>
+            <li><a class="waves-effect" asp-controller="LeaveRequest" asp-action="Index"><i class="material-icons">history</i>My Requests</a></li>
+        }
+        
+        @if (User.IsInRole("SuperAdmin") || User.IsInRole("Manager"))
+        {
+            <li><div class="divider"></div></li>
+            <li><a class="subheader">Management</a></li>
+            <li><a class="waves-effect" asp-controller="LeaveRequest" asp-action="Index"><i class="material-icons">inbox</i>Approve Requests</a></li>
+            <li><a class="waves-effect" asp-controller="LeaveType" asp-action="Index"><i class="material-icons">list_alt</i>Manage Leave Types</a></li>
+            <li><a class="waves-effect" asp-controller="Entitlement" asp-action="Index"><i class="material-icons">playlist_add_check</i>Manage Entitlements</a></li>
+            <li><a class="waves-effect" asp-controller="Users" asp-action="Index"><i class="material-icons">group</i>User Management</a></li>
+        }
+    }
+</ul>

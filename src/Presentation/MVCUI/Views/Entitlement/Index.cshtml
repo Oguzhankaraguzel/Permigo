@@ -1,0 +1,196 @@
+﻿
+@{
+    ViewData["Title"] = "Leave Entitlements";
+    var ltMapJson = JsonSerializer.Serialize(
+        ((IEnumerable<(Guid Id, string Name)>)(ViewBag.LeaveTypes
+          ?? Enumerable.Empty<(Guid, string)>()))
+        .ToDictionary(t => t.Id.ToString(), t => t.Name));
+}
+
+<div class="container">
+    <h4 class="center-align">@ViewData["Title"]</h4>
+
+    <div class="row">
+        <div class="input-field col s6">
+            <select id="employeeSelect">
+                <option value="" disabled selected>Select employee</option>
+                @foreach (var e in (IEnumerable<(Guid Id, string Name)>)
+                                (ViewBag.Employees ?? Enumerable.Empty<(Guid, string)>()))
+                {
+                    <option value="@e.Id">@e.Name</option>
+                }
+            </select>
+            <label>Employee</label>
+        </div>
+
+        <div class="input-field col s3">
+            <input type="number" id="yearFilter" min="2020" max="2100"
+                   value="@DateTime.UtcNow.Year" />
+            <label class="active">Year (optional)</label>
+        </div>
+
+        <div class="col s3 right-align">
+            <a class="btn waves-effect modal-trigger" data-target="assignModal">
+                <i class="material-icons left">add</i>Assign
+            </a>
+        </div>
+    </div>
+
+    <table class="striped responsive-table">
+        <thead>
+            <tr>
+                <th>Year</th>
+                <th>Leave Type</th>
+                <th>Allocated</th>
+                <th>Used</th>
+                <th>Remaining</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="entBody"></tbody>
+    </table>
+</div>
+
+<div id="assignModal" class="modal">
+    <div class="modal-content">
+        <h5>Assign Entitlement</h5>
+        <form id="assignForm">
+            <input type="hidden" name="EmployeeId" id="assignEmployeeId" />
+
+            <div class="input-field">
+                <input type="number" name="Year" min="2020" max="2100"
+                       required value="@DateTime.UtcNow.Year" />
+                <label class="active">Year</label>
+            </div>
+
+            <div class="input-field">
+                <select name="LeaveTypeId" required>
+                    @foreach (var lt in (IEnumerable<(Guid Id, string Name)>)
+                                        (ViewBag.LeaveTypes ?? Enumerable.Empty<(Guid, string)>()))
+                    {
+                        <option value="@lt.Id">@lt.Name</option>
+                    }
+                </select>
+                <label>Leave Type</label>
+            </div>
+
+            <div class="input-field">
+                <input type="number" name="AllocatedDays" min="1" max="60" required />
+                <label class="active">Allocated Days</label>
+            </div>
+
+            <div class="modal-footer">
+                <button class="modal-close btn-flat">Cancel</button>
+                <button class="btn" type="submit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="adjustModal" class="modal">
+    <div class="modal-content">
+        <h5>Adjust Entitlement</h5>
+        <form id="adjustForm">
+            <input type="hidden" name="EntitlementId" id="adjId" />
+            <div class="input-field">
+                <input type="number" name="AllocatedDays" min="0" max="60" />
+                <label class="active">Allocated Days</label>
+            </div>
+            <div class="input-field">
+                <input type="number" name="UsedDays" min="0" max="60" />
+                <label class="active">Used Days</label>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-close btn-flat">Cancel</button>
+                <button class="btn" type="submit">Update</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const leaveTypeMap = @Html.Raw(ltMapJson);
+    let selectedEmp = '';
+
+    document.addEventListener('DOMContentLoaded', () => {
+        M.Modal.init(document.querySelectorAll('.modal'));
+        M.FormSelect.init(document.querySelectorAll('select'));
+    });
+
+    const toast = (html, cls) => M.toast({ html, classes: cls || '' });
+
+    document.getElementById('employeeSelect').addEventListener('change', e => {
+        selectedEmp = e.target.value;
+        document.getElementById('assignEmployeeId').value = selectedEmp;
+        loadList();
+    });
+    document.getElementById('yearFilter').addEventListener('change', loadList);
+
+    async function loadList(){
+        if (!selectedEmp) return;
+        const year = document.getElementById('yearFilter').value;
+        const url  = `/Entitlement/List?employeeId=${selectedEmp}${year ? `&year=${year}` : ''}`;
+
+        const res = await fetch(url);
+        if (!res.ok){ toast('Load error','red'); return; }
+        renderRows(await res.json());
+    }
+
+        function renderRows(items){
+        const tbody = document.getElementById('entBody');
+        tbody.innerHTML = items.map(i => `
+            <tr>
+              <td>${i.year}</td>
+              <td>${leaveTypeMap[i.leaveTypeId] ?? i.leaveTypeId}</td>   <!-- burada! -->
+              <td>${i.allocatedDays}</td>
+              <td>${i.usedDays}</td>
+              <td>${i.remainingDays}</td>
+              <td class="right-align">
+                  <a class="btn-flat modal-trigger" data-target="adjustModal"
+                     onclick="openAdjust('${i.id}',${i.allocatedDays},${i.usedDays})">
+                     <i class="material-icons">edit</i>
+                  </a>
+              </td>
+            </tr>`).join('')
+            || `<tr><td colspan="6" class="center-align">No data.</td></tr>`;
+    }
+
+    document.getElementById('assignForm').addEventListener('submit', async e=>{
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target).entries());
+        const res  = await fetch('/Entitlement/Assign',{
+            method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
+        });
+        if(res.ok){
+            toast('Saved','green');
+            M.Modal.getInstance(document.getElementById('assignModal')).close();
+            loadList();
+        } else {
+            const j = await res.json();
+            toast(j.errors?.[0]?.description || 'Error','red');
+        }
+    });
+
+    function openAdjust(id, alloc, used){
+        document.getElementById('adjId').value = id;
+        document.querySelector('#adjustForm [name="AllocatedDays"]').value = alloc;
+        document.querySelector('#adjustForm [name="UsedDays"]').value      = used;
+        M.updateTextFields();
+    }
+
+    document.getElementById('adjustForm').addEventListener('submit', async e=>{
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target).entries());
+        const res  = await fetch('/Entitlement/Adjust',{
+            method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
+        });
+        if(res.ok){
+            toast('Updated','green');
+            M.Modal.getInstance(document.getElementById('adjustModal')).close();
+            loadList();
+        } else {
+            const j = await res.json();
+            toast(j.errors?.[0]?.description || 'Error','red');
+        }
+    });
+</script>

@@ -1,0 +1,109 @@
+﻿@{
+    ViewData["Title"] = "Create New User";
+}
+<div class="container">
+    <h4 class="mt-3">Create New User</h4>
+    <form id="createUserForm">
+        <div class="row">
+            <div class="input-field col s12 m6">
+                <input id="FirstName" name="FirstName" type="text" class="validate" />
+                <label for="FirstName">First Name</label>
+            </div>
+            <div class="input-field col s12 m6">
+                <input id="LastName" name="LastName" type="text" class="validate" />
+                <label for="LastName">Last Name</label>
+            </div>
+            <div class="input-field col s12 m6">
+                <input id="Email" name="Email" type="email" class="validate" />
+                <label for="Email">Email</label>
+            </div>
+            <div class="input-field col s12 m6">
+                <input id="PhoneNumber" name="PhoneNumber" type="text" class="validate" />
+                <label for="PhoneNumber">Phone Number</label>
+            </div>
+            <div class="col s12">
+                @if (User.IsInRole("SuperAdmin"))
+                {
+                    <div class="switch">
+                        <label>
+                            Not Manager
+                            <input id="IsManager" name="IsManager" type="checkbox" />
+                            <span class="lever"></span>
+                            Manager
+                        </label>
+                    </div>
+                }
+                else if (User.IsInRole("Manager"))
+                {
+                    <input id="IsManager" name="IsManager" type="hidden" value="false" />
+                }
+            </div>
+        </div>
+        <button type="submit" class="btn waves-effect waves-light">
+            Save
+            <i class="material-icons right">send</i>
+        </button>
+    </form>
+    <div id="result" class="section"></div>
+</div>
+@section scripts {
+    <script>
+        $(function () {
+            M.updateTextFields();
+
+            $('#createUserForm').on('submit', function (e) {
+                e.preventDefault();
+
+                const $form = $(this);
+                const data = $form.serialize();
+
+                clearValidationErrors();
+
+                M.toast({ html: 'Submitting…', displayLength: 1500 });
+
+                $.ajax({
+                    url: '@Url.Action("Create", "Users")',
+                    type: 'POST',
+                    data: data,
+                    success: function (response) {
+                        M.toast({ html: 'User created successfully.', classes: 'green' });
+                        $form.trigger('reset');
+                        M.updateTextFields();
+                    },
+                    error: function (xhr) {
+                        debugger;
+                        M.toast({ html: 'Please correct the errors on the form.', classes: 'red' });
+
+                        try {
+                            const response = JSON.parse(xhr.responseText);
+
+                            if (response && Array.isArray(response.errors)) {
+                                response.errors.forEach(function(error) {
+                                    const $input = $('#' + error.code);
+                                    if ($input.length) {
+                                        $input.addClass('invalid');
+                                        $input.after('<span class="helper-text red-text">' + error.description + '</span>');
+                                    }
+                                    else{
+                                        M.toast({ html: error.description, classes: 'red' });
+                                    }
+                                });
+                            } else {
+                                 const message = xhr.responseText || 'An unexpected error occurred.';
+                                 M.toast({ html: message, classes: 'red' });
+                            }
+                        } catch (ex) {
+                            const message = xhr.responseText || 'An unexpected server error occurred.';
+                            M.toast({ html: message, classes: 'red' });
+                        }
+                    }
+                });
+            });
+
+            function clearValidationErrors() {
+                $('.helper-text.red-text').remove();
+                $('input.invalid').removeClass('invalid');
+            }
+        });
+    </script>
+}

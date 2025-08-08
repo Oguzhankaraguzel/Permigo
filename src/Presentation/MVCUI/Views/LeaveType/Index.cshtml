@@ -1,0 +1,162 @@
+﻿@{
+    ViewData["Title"] = "Leave Types";
+}
+<div class="container">
+    <h4 class="center-align">@ViewData["Title"]</h4>
+
+    <div class="right-align">
+        <a class="btn waves-effect waves-light modal-trigger" data-target="createModal">
+            <i class="material-icons left">add</i>New Leave Type
+        </a>
+    </div>
+
+    <table class="striped highlight responsive-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Only Working</th>
+                <th>Allow Past</th>
+                <th>Gender</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="leaveTypeBody">
+        </tbody>
+    </table>
+
+    <ul id="pagination" class="pagination center-align"></ul>
+</div>
+
+<div id="createModal" class="modal">
+    <div class="modal-content">
+        <h5>Create Leave Type</h5>
+        <form id="createForm">
+            <div class="input-field">
+                <input id="name" name="Name" type="text" maxlength="128" required>
+                <label for="name">Name</label>
+            </div>
+            <p>
+                <label><input type="checkbox" name="OnlyWorkingDays"><span>Only Working Days</span></label>
+            </p>
+            <p>
+                <label><input type="checkbox" name="AllowPastPeriod"><span>Allow Past Period</span></label>
+            </p>
+            <div class="input-field">
+                <select name="ApplicableGender">
+                    <option value="" selected>Any</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                </select>
+                <label>Applicable Gender</label>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-close btn-flat">Cancel</button>
+                <button type="submit" class="btn">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="detailsModal" class="modal">
+    <div class="modal-content">
+        <h5>Leave Type Details</h5>
+        <div id="detailsBody"></div>
+    </div>
+</div>
+
+<script>
+    const pageSize = 10;
+    let currentPage = 1;
+    let totalPages  = 1;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        M.Modal.init(document.querySelectorAll('.modal'));
+        M.FormSelect.init(document.querySelectorAll('select'));
+        loadPage(1);
+    });
+
+    const toast = (html, classes) => M.toast({ html, classes });
+    const bodyEl = document.getElementById('leaveTypeBody');
+    const pagEl  = document.getElementById('pagination');
+
+    async function loadPage(page){
+        if (page < 1 || page > totalPages) return;
+        currentPage = page;
+        const res = await fetch(`/LeaveType/List?page=${page}&pageSize=${pageSize}`);
+        if(!res.ok){ toast('Load error','red'); return; }
+
+        const json = await res.json();
+        renderRows(json.items);
+        renderPagination(json.page, json.totalPages);
+    }
+    function renderRows(items){
+        bodyEl.innerHTML = items.map(t => `
+            <tr data-id="${t.id}">
+               <td>${t.name}</td>
+               <td>${t.onlyWorkingDays ? '✔︎' : '—'}</td>
+               <td>${t.allowPastPeriod ? '✔︎' : '—'}</td>
+               <td>${t.applicableGender ?? '—'}</td>
+               <td class="right-align">
+                   <a class="btn-flat modal-trigger" data-target="detailsModal"
+                      onclick="showDetails('${t.id}')">
+                      <i class="material-icons">info_outline</i>
+                   </a>
+               </td>
+            </tr>`).join('') || `<tr><td colspan="5" class="center-align">No data.</td></tr>`;
+    }
+    function renderPagination(page, total){
+        totalPages = total;
+        pagEl.innerHTML = '';
+        const disabledPrev = page===1 ? 'disabled' : 'waves-effect';
+        pagEl.insertAdjacentHTML('beforeend',
+            `<li class="${disabledPrev}"><a href="#!" onclick="loadPage(${page-1})"><i class="material-icons">chevron_left</i></a></li>`);
+        for(let i=1;i<=total;i++){
+            const cls = i===page ? 'active' : 'waves-effect';
+            pagEl.insertAdjacentHTML('beforeend',
+                `<li class="${cls}"><a href="#!" onclick="loadPage(${i})">${i}</a></li>`);
+        }
+        const disabledNext = page===total ? 'disabled' : 'waves-effect';
+        pagEl.insertAdjacentHTML('beforeend',
+            `<li class="${disabledNext}"><a href="#!" onclick="loadPage(${page+1})"><i class="material-icons">chevron_right</i></a></li>`);
+    }
+
+    // ------- Create ---------------------------------------------------------
+    document.getElementById('createForm').addEventListener('submit', async e=>{
+        e.preventDefault();
+        const f = e.target;
+        const data = {
+            Name: f.Name.value.trim(),
+            OnlyWorkingDays: f.OnlyWorkingDays.checked,
+            AllowPastPeriod: f.AllowPastPeriod.checked,
+            ApplicableGender: f.ApplicableGender.value || null
+        };
+        const res = await fetch('/LeaveType/Create',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(data)
+        });
+        if(res.ok){
+            toast('Saved ✔︎','green');
+            M.Modal.getInstance(document.getElementById('createModal')).close();
+            loadPage(currentPage);            // reload current page
+        }else{
+            const { errors } = await res.json();
+            (errors ?? ['Error']).forEach(err=> toast(err.description||err,'red'));
+        }
+    });
+
+    // ------- Details --------------------------------------------------------
+    async function showDetails(id){
+        const res = await fetch(`/LeaveType/Details/${id}`);
+        if(!res.ok){ toast('Detail error','red'); return; }
+        const { dto } = await res.json();
+        document.getElementById('detailsBody').innerHTML = `
+            <ul class="collection">
+               <li class="collection-item"><b>ID:</b> ${dto.id}</li>
+               <li class="collection-item"><b>Name:</b> ${dto.name}</li>
+               <li class="collection-item"><b>Only Working Days:</b> ${dto.onlyWorkingDays}</li>
+               <li class="collection-item"><b>Allow Past Period:</b> ${dto.allowPastPeriod}</li>
+               <li class="collection-item"><b>Applicable Gender:</b> ${dto.applicableGender ?? '-'}</li>
+            </ul>`;
+    }
+</script>

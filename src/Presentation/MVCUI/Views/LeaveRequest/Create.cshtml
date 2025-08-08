@@ -1,0 +1,101 @@
+﻿@{
+    ViewData["Title"] = "New Leave Request";
+    var leaveTypes = (IEnumerable<LeaveTypeDto>)ViewBag.LeaveTypes;
+}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css" />
+
+<div class="container">
+    <h4 class="center-align">@ViewData["Title"]</h4>
+
+    <form id="createForm">
+        <div class="input-field">
+            <select name="LeaveTypeId" required>
+                <option value="" disabled selected>Select leave type</option>
+                @foreach (var lt in leaveTypes)
+                {
+                    <option value="@lt.Id">@lt.Name</option>
+                }
+            </select>
+            <label>Leave Type</label>
+        </div>
+
+        <div class="input-field">
+            <input type="text" id="daterange" class="validate" required />
+            <label for="daterange">Date Range (Start - End)</label>
+        </div>
+
+        <div class="input-field">
+            <textarea name="Reason" class="materialize-textarea"></textarea>
+            <label>Reason (optional)</label>
+        </div>
+
+        <button class="btn" type="submit">Submit</button>
+    </form>
+</div>
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
+
+    <script>
+        let selectedStartDate = null;
+        let selectedEndDate = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            M.FormSelect.init(document.querySelectorAll('select'));
+
+            const picker = new Litepicker({
+                element: document.getElementById('daterange'),
+                singleMode: false,
+                format: 'YYYY-MM-DD',
+                minDate: new Date(),
+                tooltipText: {
+                    one: 'day',
+                    other: 'days'
+                },
+                setup: (picker) => {
+                    picker.on('selected', (date1, date2) => {
+                        selectedStartDate = date1.format('YYYY-MM-DD');
+                        selectedEndDate = date2.format('YYYY-MM-DD');
+                        M.updateTextFields();
+                    });
+                }
+            });
+        });
+
+        document.getElementById('createForm').addEventListener('submit', async e => {
+            e.preventDefault();
+            const form = e.target;
+
+            if (!form.LeaveTypeId.value) {
+                M.toast({ html: 'Please select a leave type.', classes: 'red' });
+                return;
+            }
+
+            if (!selectedStartDate || !selectedEndDate) {
+                M.toast({ html: 'Please select a date range.', classes: 'red' });
+                return;
+            }
+
+            const body = {
+                leaveTypeId: form.LeaveTypeId.value,
+                startDate: selectedStartDate,
+                endDate: selectedEndDate,
+                reason: form.Reason.value
+            };
+
+            const res = await fetch('/LeaveRequest/Create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (res.ok) {
+                M.toast({ html: 'Leave request created successfully.' });
+                setTimeout(() => { window.location.href = '/LeaveRequest/Index'; }, 1000);
+            } else {
+                const err = await res.json();
+                M.toast({ html: err.errors?.map(e => e.description).join('<br/>') || 'An error occurred.', classes: 'red' });
+            }
+        });
+    </script>
+}

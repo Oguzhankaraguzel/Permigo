@@ -1,0 +1,68 @@
+version: "3.9"
+
+x-common-logging: &common-logging
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+      
+services:
+  mvcui:
+    <<: *common-logging
+    container_name: permigo-mvcui                     
+    build:
+      context: .                                     
+      dockerfile: src/Presentation/MVCUI/Dockerfile   
+      target: final                                   
+      args:
+        BUILD_CONFIGURATION: Release                  
+    image: permigo/mvcui:latest                       
+    ports:
+      - "8080:8080"                                  
+    environment:
+      ASPNETCORE_URLS: "http://+:8080"
+      ConnectionStrings__Default: "Host=postgres;Port=5432;Database=Permigo;Username=postgres;Password=postgres"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seq:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    restart: on-failure
+    
+  postgres:
+    <<: *common-logging
+    image: postgres:16-alpine
+    container_name: permigo-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: Permigo
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    
+  seq:
+    <<: *common-logging
+    image: datalust/seq:2024
+    environment:
+      ACCEPT_EULA: "Y"
+    ports:
+      - "5341:80"            # http://localhost:5341
+    restart: unless-stopped
+    
+volumes:
+  db-data:

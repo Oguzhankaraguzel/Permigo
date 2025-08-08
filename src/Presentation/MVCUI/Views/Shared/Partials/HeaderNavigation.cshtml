@@ -1,0 +1,19 @@
+﻿<nav class="teal darken-2">
+    <div class="nav-wrapper">
+        <a href="#" data-target="slide-out" class="sidenav-trigger show-on-large left"><i class="material-icons">menu</i></a>
+        <a asp-controller="Home" asp-action="Index" class="brand-logo center">
+            <img class="navbar-logo" src="~/img/logo.svg" alt="Permigo Logo" />
+            Permigo
+        </a>
+        <ul class="right hide-on-med-and-down">
+            @if (User?.Identity?.IsAuthenticated ?? false)
+            {
+                <li><a asp-controller="Account" asp-action="Logout">Logout</a></li>
+            }
+            else
+            {
+                <li><a asp-controller="Account" asp-action="Index">Sign In</a></li>
+            }
+        </ul>
+    </div>
+</nav>

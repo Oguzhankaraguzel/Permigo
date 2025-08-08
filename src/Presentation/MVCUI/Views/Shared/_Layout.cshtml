@@ -1,0 +1,36 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Permigo</title>
+    <link rel="icon" href="~/img/logo.svg" type="image/svg+xml" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <partial name="~/Views/Shared/Partials/HeaderNavigation.cshtml" />
+    </header>
+
+    <partial name="~/Views/Shared/Partials/SidebarNavigation.cshtml" />
+
+    <main class="content-wrapper" style="margin:20px;">
+        @RenderBody()
+    </main>
+
+    <footer class="page-footer teal darken-2">
+        <div class="row">
+            <div class="col s12">
+                &copy; @DateTime.Now.Year – Permigo
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

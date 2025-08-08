@@ -1,0 +1,74 @@
+﻿@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Permigo | Login</title>
+    <link rel="icon" href="~/img/logo.svg" type="image/svg+xml" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css" rel="stylesheet" />
+
+    <style>
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: #f5f5f5;
+        }
+
+        .login-card {
+            padding: 2rem 3rem;
+            border-radius: 12px;
+            width: 100%;
+            max-width: 380px;
+        }
+
+        .brand-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            color: #37474f;
+        }
+
+            .brand-logo img {
+                width: 32px;
+                height: 32px;
+            }
+    </style>
+</head>
+<body>
+    <div class="card login-card z-depth-3">
+        <h5 class="brand-logo">
+            <img src="~/img/logo.svg" alt="Permigo Logo" />
+            Permigo
+        </h5>
+
+        <form asp-action="Login" method="post">
+            <div asp-validation-summary="All"></div>
+            <div class="input-field">
+                <input id="identifier" type="text" name="UserNameOrEmail" class="validate" required />
+                <label for="identifier">Username or E-mail</label>
+            </div>
+
+            <div class="input-field">
+                <input id="password" type="password" name="Password" class="validate" required />
+                <label for="password">Password</label>
+            </div>
+
+            <button type="submit" class="btn waves-effect waves-light blue lighten-1" style="width:100%; margin-bottom:5px;">Sign In</button>
+
+            <button type="reset" class="btn waves-effect waves-light blue lighten-2" style="width:100%; margin-bottom:5px;">Clear</button>
+
+            <a asp-controller="Home" class="btn waves-effect waves-light blue lighten-3" style="width:100%; margin-bottom:5px;">Return Home</a>
+        </form>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+</body>
+</html>

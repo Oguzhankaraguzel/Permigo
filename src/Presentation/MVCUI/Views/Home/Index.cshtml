@@ -1,0 +1,55 @@
+﻿@{
+    bool isLoggedIn = User?.Identity?.IsAuthenticated ?? false;
+    ViewData["Title"] = isLoggedIn ? "Dashboard" : "Welcome";
+}
+
+@if (!isLoggedIn)
+{
+    <div class="center-align" style="margin-top:6rem">
+        <h3>Welcome!</h3>
+        <p class="flow-text">
+            Manage your workflow effortlessly.<br />
+            Sign in to access personalized features and real-time insights.
+        </p>
+
+        <a asp-controller="Account" asp-action="Index"
+           class="btn-large waves-effect waves-light blue darken-1">
+            Sign In
+        </a>
+    </div>
+}
+else
+{
+    <h4 class="center-align">Hello, @User?.Identity?.Name!</h4>
+
+    <div class="row">
+
+        <div class="col s12 m4">
+            <div class="card hoverable">
+                <div class="card-content center">
+                    <span class="card-title">Last Sign-In</span>
+                    <h5>@DateTime.Now.ToString("dd.MM.yyyy HH:mm")</h5>
+                </div>
+            </div>
+        </div>
+
+        <div class="col s12 m4">
+            <div class="card hoverable">
+                <div class="card-content center">
+                    <span class="card-title">Pending Tasks</span>
+                    <h5>0</h5>
+                </div>
+            </div>
+        </div>
+
+        <div class="col s12 m4">
+            <div class="card hoverable">
+                <div class="card-content center">
+                    <span class="card-title">Notifications</span>
+                    <p class="grey-text">No notifications yet.</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+}

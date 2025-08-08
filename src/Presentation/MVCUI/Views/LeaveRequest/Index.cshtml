@@ -1,0 +1,179 @@
+﻿@using Domain.Entities.User
+@{
+    ViewData["Title"] = "Leave Requests";
+}
+<div class="container">
+    <h4 id="pageHeader" class="center-align">@ViewData["Title"]</h4>
+
+    <div class="input-field">
+        <select id="statusFilter">
+            <option value="Pending" selected>Pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+        </select>
+        <label>Status</label>
+    </div>
+
+    <table class="striped responsive-table">
+        <thead>
+            <tr>
+                <th>Employee</th>
+                <th>Leave Type</th>
+                <th>Date Range</th>
+                <th>Days</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody id="reqBody"></tbody>
+    </table>
+
+    <ul id="pager" class="pagination center-align"></ul>
+</div>
+
+<div id="rejectModal" class="modal">
+    <div class="modal-content">
+        <h5>Reject Leave Request</h5>
+        <form id="rejectForm">
+            <input type="hidden" name="RequestId" id="rejId" />
+            <div class="input-field">
+                <textarea id="rejReason" name="Reason" class="materialize-textarea" required></textarea>
+                <label for="rejReason">Reason</label>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-close btn-flat">Cancel</button>
+                <button class="btn red" type="submit">Reject</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    const canManage = @((User.IsInRole(Roles.SuperAdmin) || User.IsInRole(Roles.Manager)) ? "true" : "false");
+
+    document.addEventListener('DOMContentLoaded', () => {
+        M.Modal.init(document.querySelectorAll('.modal'));
+        M.FormSelect.init(document.querySelectorAll('select'));
+        loadList();
+    });
+
+    const toast = (html, cls) => M.toast({ html, classes: cls || '' });
+
+    let items = [];
+    const pageSize = 10;
+    let currentPage = 1;
+
+    async function handleApiError(response) {
+        const errorData = await response.json();
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+            return errorData.errors.map(e => e.description).join('<br/>');
+        }
+        return `An unexpected error occurred (HTTP ${response.status}).`;
+    }
+
+    async function loadList() {
+        const status = document.getElementById('statusFilter').value;
+        document.getElementById('pageHeader').innerText = `${status} Leave Requests`;
+        try {
+            const res = await fetch(`/LeaveRequest/List?status=${status}`);
+            if (!res.ok) {
+                throw await handleApiError(res);
+            }
+            items = await res.json();
+            currentPage = 1;
+            renderTable();
+            renderPager();
+        } catch (e) {
+            toast(`Error: ${e}`, 'red');
+        }
+    }
+
+    document.getElementById('statusFilter').addEventListener('change', loadList);
+
+    function renderTable() {
+        const tbody = document.getElementById('reqBody');
+        const pageItems = items.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+        tbody.innerHTML = pageItems.map(r => `
+            <tr>
+                <td>${r.employeeName}</td>
+                <td>${r.leaveTypeName}</td>
+                <td>${new Date(r.startDate).toLocaleDateString()} – ${new Date(r.endDate).toLocaleDateString()}</td>
+                <td>${r.durationDays}</td>
+                <td><span class="new badge ${r.status === 'Approved' ? 'green' : r.status === 'Rejected' ? 'red' : 'orange'}" data-badge-caption="">${r.status}</span></td>
+                <td class="right-align">
+                    ${canManage === true && r.status === 'Pending' ? actionBtns(r.id) : ''}
+                </td>
+            </tr>`).join('') || `<tr><td colspan="6" class="center-align">No data available.</td></tr>`;
+    }
+
+    function renderPager() {
+        const pager = document.getElementById('pager');
+        const totalPages = Math.ceil(items.length / pageSize);
+        if (totalPages <= 1) { pager.innerHTML = ''; return; }
+        pager.innerHTML = '';
+        pager.insertAdjacentHTML('beforeend', pageLink('chevron_left', currentPage > 1, currentPage - 1));
+        for (let i = 1; i <= totalPages; i++) {
+            const cls = i === currentPage ? 'active' : 'waves-effect';
+            pager.insertAdjacentHTML('beforeend', `<li class="${cls}"><a href="#!" onclick="gotoPage(${i})">${i}</a></li>`);
+        }
+        pager.insertAdjacentHTML('beforeend', pageLink('chevron_right', currentPage < totalPages, currentPage + 1));
+    }
+
+    function pageLink(icon, enabled, target) {
+        return `<li class="${enabled ? 'waves-effect' : 'disabled'}"><a href="#!" ${enabled ? `onclick="gotoPage(${target})"` : ''}><i class="material-icons">${icon}</i></a></li>`;
+    }
+
+    function gotoPage(p) { currentPage = p; renderTable(); renderPager(); }
+
+    const actionBtns = id => `
+        <a class="btn-small green lighten-1 waves-effect waves-light" onclick="approve('${id}')" title="Approve"><i class="material-icons">check</i></a>
+        <a class="btn-small red lighten-1 waves-effect waves-light modal-trigger" data-target="rejectModal" onclick="openReject('${id}')" title="Reject"><i class="material-icons">close</i></a>`;
+
+    function openReject(id) {
+        document.getElementById('rejId').value = id;
+        document.getElementById('rejectForm').reset();
+        M.updateTextFields();
+    }
+
+    async function approve(id) {
+        if (!confirm('Are you sure you want to approve this request?')) return;
+        try {
+            const res = await fetch('/LeaveRequest/Approve', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ RequestId: id })
+            });
+            if (!res.ok) {
+                throw await handleApiError(res);
+            }
+            toast('Approved successfully', 'green');
+            items = items.filter(x => x.id !== id);
+            renderTable();
+            renderPager();
+        } catch (e) {
+            toast(e, 'red');
+        }
+    }
+
+    document.getElementById('rejectForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(e.target).entries());
+        try {
+            const res = await fetch('/LeaveRequest/Reject', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (!res.ok) {
+                throw await handleApiError(res);
+            }
+            toast('Rejected successfully', 'green');
+            M.Modal.getInstance(document.getElementById('rejectModal')).close();
+            items = items.filter(x => x.id !== data.RequestId);
+            renderTable();
+            renderPager();
+        } catch (e) {
+            toast(e, 'red');
+        }
+    });
+</script>
